@@ -1,0 +1,6 @@
+{
+  "name": "FoodzWise - Smart Food & Nutrition Scanner",
+  "description": "Scan packaged foods across India, decode nutrition labels, detect FSSAI HFSS warnings, verify 14-digit FSSAI licenses, and get personalized dietary health recommendations.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
