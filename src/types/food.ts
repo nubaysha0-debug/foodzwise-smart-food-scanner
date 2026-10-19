@@ -158,6 +158,23 @@ export interface NutrientRDA {
   advice: string;
 }
 
+export interface DayNutrientSummary {
+  date: string; // YYYY-MM-DD
+  dayLabel: string; // e.g. "Mon", "Tue"
+  fullDateLabel: string; // e.g. "Mon, Oct 19"
+  isToday: boolean;
+  itemCount: number;
+  calories: number;
+  totalSugars: number;
+  addedSugars: number;
+  saturatedFat: number;
+  sodium: number;
+  totalFat: number;
+  protein: number;
+  fiber: number;
+  items: DailyLoggedItem[];
+}
+
 export interface ProfileRDAConfig {
   calories: number;
   totalSugarsMax: number;
@@ -167,5 +184,38 @@ export interface ProfileRDAConfig {
   proteinMin: number;
   fiberMin: number;
   specialNote: string;
+}
+
+export type StorageLocation = 'pantry' | 'fridge' | 'freezer' | 'counter';
+
+export interface PantryItem {
+  id: string;
+  dateAdded: string; // ISO date
+  product: Product;
+  quantity: number;
+  packageWeightGrams: number;
+  expiryDate?: string; // YYYY-MM-DD
+  storageLocation: StorageLocation;
+  notes?: string;
+}
+
+export interface PantryAnalytics {
+  totalItems: number;
+  totalUnits: number;
+  totalWeightGrams: number;
+  totalCalories: number;
+  totalSugarsGrams: number;
+  totalSatFatGrams: number;
+  totalSodiumMg: number;
+  totalProteinGrams: number;
+  totalFiberGrams: number;
+  hfssCount: number;
+  hfssPercentage: number;
+  ultraProcessedPercentage: number;
+  topSugarSources: { name: string; amountGrams: number }[];
+  topSodiumSources: { name: string; amountMg: number }[];
+  topProteinSources: { name: string; amountGrams: number }[];
+  expiringSoonItems: { item: PantryItem; daysRemaining: number }[];
+  profileUnfitItems: { item: PantryItem; verdict: string }[];
 }
 

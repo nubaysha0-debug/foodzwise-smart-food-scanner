@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserHealthProfile, Product, DailyLoggedItem } from '../types/food';
+import { UserHealthProfile, Product, DailyLoggedItem, PantryItem, StorageLocation } from '../types/food';
+import { LOCAL_CATALOGUE } from '../data/catalogue';
 
 export interface ProfilePreset {
   id: string;
@@ -221,9 +222,15 @@ interface ProfileContextType {
   removeFromComparison: (barcode: string) => void;
   clearComparison: () => void;
   dailyLogs: DailyLoggedItem[];
-  addDailyLog: (item: Omit<DailyLoggedItem, 'id' | 'timestamp'>) => void;
+  addDailyLog: (item: Omit<DailyLoggedItem, 'id' | 'timestamp'> & { timestamp?: string }) => void;
   removeDailyLog: (id: string) => void;
   clearDailyLogs: () => void;
+  pantryItems: PantryItem[];
+  addToPantry: (product: Product, options?: { quantity?: number; packageWeightGrams?: number; expiryDate?: string; storageLocation?: StorageLocation; notes?: string }) => void;
+  updatePantryItem: (id: string, updates: Partial<PantryItem>) => void;
+  removeFromPantry: (id: string) => void;
+  clearPantry: () => void;
+  isInPantry: (barcode: string) => boolean;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -366,11 +373,11 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setComparisonList([]);
   };
 
-  const addDailyLog = (item: Omit<DailyLoggedItem, 'id' | 'timestamp'>) => {
+  const addDailyLog = (item: Omit<DailyLoggedItem, 'id' | 'timestamp'> & { timestamp?: string }) => {
     const newItem: DailyLoggedItem = {
       ...item,
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      timestamp: new Date().toISOString()
+      timestamp: item.timestamp || new Date().toISOString()
     };
     setDailyLogs(prev => [newItem, ...prev]);
   };
@@ -381,6 +388,152 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const clearDailyLogs = () => {
     setDailyLogs([]);
+  };
+
+  // Pantry Items (Home Stock)
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('foodzwise_pantry_items');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback
+    }
+
+    // Default starter pantry items to demonstrate home stock tracking
+    const today = new Date();
+    const expirySoon = new Date(today);
+    expirySoon.setDate(today.getDate() + 4); // 4 days from now
+
+    const expiryFresh = new Date(today);
+    expiryFresh.setDate(today.getDate() + 90); // 3 months from now
+
+    const oats = LOCAL_CATALOGUE.find(p => p.barcode === '8900000000035') || LOCAL_CATALOGUE[2];
+    const yogurt = LOCAL_CATALOGUE.find(p => p.barcode === '8900000000042') || LOCAL_CATALOGUE[3];
+    const amul = LOCAL_CATALOGUE.find(p => p.barcode === '8901262010052') || LOCAL_CATALOGUE[1];
+    const kurkure = LOCAL_CATALOGUE.find(p => p.barcode === '8901491101835') || LOCAL_CATALOGUE[0];
+
+    const initial: PantryItem[] = [];
+    if (oats) {
+      initial.push({
+        id: 'pantry-seed-1',
+        dateAdded: new Date().toISOString(),
+        product: oats,
+        quantity: 2,
+        packageWeightGrams: 500,
+        expiryDate: expiryFresh.toISOString().split('T')[0],
+        storageLocation: 'pantry',
+        notes: 'Morning breakfast staple'
+      });
+    }
+    if (yogurt) {
+      initial.push({
+        id: 'pantry-seed-2',
+        dateAdded: new Date().toISOString(),
+        product: yogurt,
+        quantity: 1,
+        packageWeightGrams: 400,
+        expiryDate: expirySoon.toISOString().split('T')[0],
+        storageLocation: 'fridge',
+        notes: 'Use in raita or smoothies before Friday'
+      });
+    }
+    if (amul) {
+      initial.push({
+        id: 'pantry-seed-3',
+        dateAdded: new Date().toISOString(),
+        product: amul,
+        quantity: 1,
+        packageWeightGrams: 100,
+        expiryDate: expiryFresh.toISOString().split('T')[0],
+        storageLocation: 'fridge'
+      });
+    }
+    if (kurkure) {
+      initial.push({
+        id: 'pantry-seed-4',
+        dateAdded: new Date().toISOString(),
+        product: kurkure,
+        quantity: 2,
+        packageWeightGrams: 85,
+        expiryDate: expiryFresh.toISOString().split('T')[0],
+        storageLocation: 'pantry',
+        notes: 'Evening tea snack'
+      });
+    }
+
+    return initial;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('foodzwise_pantry_items', JSON.stringify(pantryItems));
+    } catch {
+      // ignore
+    }
+  }, [pantryItems]);
+
+  const addToPantry = (
+    product: Product,
+    options?: {
+      quantity?: number;
+      packageWeightGrams?: number;
+      expiryDate?: string;
+      storageLocation?: StorageLocation;
+      notes?: string;
+    }
+  ) => {
+    setPantryItems(prev => {
+      const existingIndex = prev.findIndex(item => item.product.barcode === product.barcode);
+      const qtyToAdd = options?.quantity || 1;
+      const weight = options?.packageWeightGrams || product.nutrition.servingSizeGrams || 100;
+      const loc = options?.storageLocation || (product.category.toLowerCase().includes('dairy') ? 'fridge' : 'pantry');
+
+      if (existingIndex >= 0) {
+        // Increment quantity of existing item
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: updated[existingIndex].quantity + qtyToAdd,
+          notes: options?.notes || updated[existingIndex].notes,
+          expiryDate: options?.expiryDate || updated[existingIndex].expiryDate
+        };
+        return updated;
+      }
+
+      const newItem: PantryItem = {
+        id: `pantry-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        dateAdded: new Date().toISOString(),
+        product,
+        quantity: qtyToAdd,
+        packageWeightGrams: weight,
+        expiryDate: options?.expiryDate,
+        storageLocation: loc,
+        notes: options?.notes
+      };
+
+      return [newItem, ...prev];
+    });
+  };
+
+  const updatePantryItem = (id: string, updates: Partial<PantryItem>) => {
+    setPantryItems(prev =>
+      prev.map(item => (item.id === id ? { ...item, ...updates } : item))
+    );
+  };
+
+  const removeFromPantry = (id: string) => {
+    setPantryItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const clearPantry = () => {
+    setPantryItems([]);
+  };
+
+  const isInPantry = (barcode: string): boolean => {
+    return pantryItems.some(item => item.product.barcode === barcode);
   };
 
   return (
@@ -400,7 +553,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         dailyLogs,
         addDailyLog,
         removeDailyLog,
-        clearDailyLogs
+        clearDailyLogs,
+        pantryItems,
+        addToPantry,
+        updatePantryItem,
+        removeFromPantry,
+        clearPantry,
+        isInPantry
       }}
     >
       {children}
