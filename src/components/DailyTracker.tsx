@@ -15,6 +15,7 @@ import { useProfile } from '../context/ProfileContext';
 import { evaluateDailyIntake } from '../services/rdaService';
 import { LOCAL_CATALOGUE } from '../data/catalogue';
 import { Product } from '../types/food';
+import { WeeklyNutrientChart } from './WeeklyNutrientChart';
 
 interface DailyTrackerProps {
   onClose?: () => void;
@@ -257,6 +258,15 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({
           })}
         </div>
       </div>
+
+      {/* Weekly Nutrient Intake Trends Chart (Recharts) */}
+      <WeeklyNutrientChart
+        dailyLogs={dailyLogs}
+        profile={profile}
+        rdaConfig={rdaConfig}
+        onAddLogToDate={addDailyLog}
+        onRemoveLog={removeDailyLog}
+      />
 
       {/* Quick Add from Verified Catalogue */}
       <div className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-2xs space-y-3">
